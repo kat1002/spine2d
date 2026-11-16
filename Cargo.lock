@@ -5216,6 +5216,7 @@ dependencies = [
  "egui-winit",
  "image",
  "pollster",
+ "serde_json",
  "spine2d",
  "wgpu 29.0.4",
  "wgpu 30.0.0",

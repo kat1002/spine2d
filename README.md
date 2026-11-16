@@ -29,6 +29,60 @@ Experimental, pure Rust runtime for Spine 4.3 (unofficial).
 - `spine2d-bevy`: Bevy `Material2d` backend built on top of the core runtime.
 - `spine2d-web`: Trunk + wgpu web demo/viewer (`wasm32-unknown-unknown`).
 
+## Studio & Customization Features (Fork: kat1002/spine2d)
+
+This fork extends `spine2d` and `spine2d-wgpu` into a full interactive character studio and skin authoring tool (`examples/spine_runtimes.rs`).
+
+### 1. Interactive 6-Tab Studio UI
+Run with:
+```bash
+cargo run -p spine2d-wgpu --example spine_runtimes --features json -- mira action_1
+```
+
+- **🖼️ Built-in Sprites & Parts Modifier**:
+  - Quick select common body parts (`Body`, `Left/Right Hands`, `Head`, `Hair`, `Skirts`, `Legs`).
+  - Search and inspect any slot/attachment on the character.
+  - Adjust local **Position (X/Y)**, **Rotation**, **Scale (X/Y)**, and **Opacity/Alpha** with live sliders and step buttons.
+  - Re-wire any part sprite to another bone on the fly.
+  - Swap part attachments across different skins (e.g. mix and match outfits).
+  - One-click `[Show / Hide Part]` toggle.
+
+- **👗 Custom PNG Wardrobe & Prop Dresser**:
+  - Load custom external PNG sprites for hats, clothes, gloves, shoes, weapons, wings, and accessories.
+  - Presets for rapid slot creation and auto-adaptation (automatically sizes and rotates sprites to match target slot reference dimensions).
+  - Live local transform controls (X/Y, rotation, scale X/Y).
+  - **🖐️ Hand Skin & Alignment Assistant**:
+    - `[🚫 Hide Underlying Hand]` one-click toggle to eliminate double-hand artifacts.
+    - `[📐 Auto-Align to Natural Hand Angle]` snaps glove rotation to natural forearm/wrist orientation (e.g. 40.6° / 138.5°).
+    - `[↔️ Flip Glove (Horizontal)]` to reuse a single glove sprite for both left and right hands.
+    - Quick directional position nudges.
+
+- **🦴 Bone Modifying & Hierarchy Studio**:
+  - **Interactive Viewport Gizmos**: Click directly on any bone joint in the viewport to select and edit it.
+  - Hover tooltips and axis crosshairs (X in red, Y in green) for selected bones.
+  - **Full Bone Transform Modifiers**: Offset X/Y, Rotation (-180° to +180°), Scale X/Y, and Bone Length sliders + fine step buttons.
+  - **🪞 Opposite Limb Mirroring**: Instantly mirror transforms between left and right limbs (`l_hand_C2` <-> `r_hand_C2`, `l_leg` <-> `r_leg`).
+  - **+ Add Child Bone**: Create new bones on the skeleton and attach custom slots/props to them.
+  - **Reparent Bone**: Change the parent bone of any existing bone in the hierarchy.
+
+- **🎨 Skin Builder**:
+  - Combine active outfits, cross-skin attachments, and custom sprites into a permanent named Spine skin.
+
+- **📚 Layer Draw Order**:
+  - Inspect and reorder slot rendering layers live with Move Up / Move Down controls.
+
+- **💾 Character Importer & Spine Exporter**:
+  - **Character Importer**: Browse any character folder containing `.json` or `.skel.bytes` (auto-decodes and upgrades Spine 4.2 to 4.3).
+  - **Save & Recompile Spine Export**: One-click bake of all custom attachments, new bones, bone transforms, sprite adjustments, and layers directly into standard Spine `.json` + `.atlas` files in the character's `export/` folder.
+
+### 2. Runtime Core Extensions (`spine2d`)
+- `SkinData`: Added `add_skin()`, `copy_skin()`, `get_attachment_mut()`, and `find_skin_mut()`.
+- `Skeleton`: Added `add_skin()`, `add_slot()`, and `set_attachment_from_skin()` for live cross-skin attachment swapping without destroying animation state.
+- `Slot`: Added `set_data()` and `set_bone_index()` for dynamic runtime re-wiring.
+
+### 3. Utility Scripts
+- `scripts/import_character.py`: Automated tool to parse Spine 4.2 JSON and `.skel.bytes` binary files, normalize versions, and prepare them for 4.3 runtime export.
+
 ## wgpu version selection
 
 `spine2d-wgpu` defaults to wgpu 29, matching Bevy 0.19 and egui 0.35. It re-exports the selected crate as `spine2d_wgpu::wgpu` so renderer-facing types always use the active backend version.

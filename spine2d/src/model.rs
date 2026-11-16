@@ -1426,6 +1426,31 @@ pub struct RegionAttachmentData {
 }
 
 impl RegionAttachmentData {
+    pub fn new(
+        name: impl Into<String>,
+        path: impl Into<String>,
+        width: f32,
+        height: f32,
+    ) -> Self {
+        let name = name.into();
+        let path = path.into();
+        Self {
+            timeline_attachment: name.clone(),
+            name,
+            path,
+            sequence: None,
+            color: [1.0, 1.0, 1.0, 1.0],
+            timeline_slots: Vec::new(),
+            x: 0.0,
+            y: 0.0,
+            rotation: 0.0,
+            scale_x: 1.0,
+            scale_y: 1.0,
+            width,
+            height,
+        }
+    }
+
     pub fn get_name(&self) -> &str {
         self.name.as_str()
     }
@@ -2176,6 +2201,16 @@ impl SkinData {
         self.attachments
             .get(slot_index)
             .and_then(|slot_map| slot_map.get(attachment_name))
+    }
+
+    pub fn get_attachment_mut(
+        &mut self,
+        slot_index: usize,
+        attachment_name: &str,
+    ) -> Option<&mut AttachmentData> {
+        self.attachments
+            .get_mut(slot_index)
+            .and_then(|slot_map| slot_map.get_mut(attachment_name))
     }
 
     pub fn find_names_for_slot(&self, slot_index: usize, names: &mut Vec<String>) {
@@ -3461,8 +3496,44 @@ impl SkeletonData {
         &self.slots
     }
 
+    pub fn get_slots_mut(&mut self) -> &mut Vec<SlotData> {
+        &mut self.slots
+    }
+
+    pub fn add_slot(
+        &mut self,
+        name: impl Into<String>,
+        bone_index: usize,
+        attachment: Option<String>,
+    ) -> usize {
+        let index = self.slots.len();
+        self.slots.push(SlotData {
+            index,
+            name: name.into(),
+            bone: bone_index,
+            attachment,
+            setup_pose: SlotSetupPose::default(),
+            blend: BlendMode::Normal,
+            visible: true,
+        });
+        index
+    }
+
     pub fn get_skins(&self) -> &[SkinData] {
         &self.skins
+    }
+
+    pub fn get_skins_mut(&mut self) -> &mut Vec<SkinData> {
+        &mut self.skins
+    }
+
+    /// Registers a skin, replacing any existing skin with the same name.
+    pub fn add_skin(&mut self, skin: SkinData) {
+        if let Some(existing) = self.skins.iter_mut().find(|s| s.name == skin.name) {
+            *existing = skin;
+        } else {
+            self.skins.push(skin);
+        }
     }
 
     pub fn get_default_skin(&self) -> Option<&SkinData> {
@@ -3509,6 +3580,10 @@ impl SkeletonData {
 
     pub fn find_skin(&self, name: &str) -> Option<&SkinData> {
         self.skins.iter().find(|data| data.name == name)
+    }
+
+    pub fn find_skin_mut(&mut self, name: &str) -> Option<&mut SkinData> {
+        self.skins.iter_mut().find(|data| data.name == name)
     }
 
     pub fn find_event(&self, name: &str) -> Option<&EventData> {

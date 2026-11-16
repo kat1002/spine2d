@@ -605,6 +605,40 @@ impl Skeleton {
         self.data.as_ref()
     }
 
+    pub fn set_data(&mut self, data: Arc<SkeletonData>) {
+        self.data = data;
+        while self.slots.len() < self.data.slots.len() {
+            let data_index = self.slots.len();
+            let slot = &self.data.slots[data_index];
+            self.slots.push(Slot {
+                data_index,
+                bone: slot.bone,
+                attachment: slot.attachment.clone(),
+                attachment_skin: None,
+                attachment_state: 0,
+                sequence_index: slot.setup_pose.sequence_index,
+                deform: Vec::new(),
+                color: slot.setup_pose.color,
+                has_dark: slot.setup_pose.has_dark,
+                dark_color: slot.setup_pose.dark_color,
+                applied_pose: SlotPose {
+                    attachment: slot.attachment.clone(),
+                    attachment_skin: None,
+                    sequence_index: slot.setup_pose.sequence_index,
+                    deform: Vec::new(),
+                    color: slot.setup_pose.color,
+                    has_dark: slot.setup_pose.has_dark,
+                    dark_color: slot.setup_pose.dark_color,
+                },
+                pose_constrained: false,
+            });
+            self.draw_order.push(data_index);
+            if self.draw_order_constrained {
+                self.applied_draw_order.push(data_index);
+            }
+        }
+    }
+
     pub fn get_bones(&self) -> &[Bone] {
         &self.bones
     }
@@ -1461,6 +1495,57 @@ impl Skeleton {
         pose.set_attachment(
             Some(attachment_name.to_string()),
             Some(source_skin),
+            clear_deform,
+        );
+    }
+
+    pub fn set_attachment_from_skin(
+        &mut self,
+        slot_name: &str,
+        attachment_name: &str,
+        source_skin_name: &str,
+    ) {
+        if slot_name.is_empty() {
+            return;
+        }
+        let Some(slot_index) = self.slot_index_by_name(slot_name) else {
+            return;
+        };
+
+        if attachment_name.is_empty() {
+            self.set_attachment(slot_name, "");
+            return;
+        }
+
+        let Some(skin) = self.data.find_skin(source_skin_name) else {
+            return;
+        };
+        if skin.get_attachment(slot_index, attachment_name).is_none() {
+            return;
+        }
+
+        let (old_key, old_skin) = {
+            let slot = &self.slots[slot_index];
+            (slot.attachment.clone(), slot.attachment_skin.clone())
+        };
+        if old_key.as_deref() == Some(attachment_name)
+            && old_skin.as_deref() == Some(source_skin_name)
+        {
+            return;
+        }
+
+        let clear_deform = self.attachment_change_clears_deform(
+            slot_index,
+            old_key.as_deref(),
+            old_skin.as_deref(),
+            Some(attachment_name),
+            Some(source_skin_name),
+        );
+        let slot = &mut self.slots[slot_index];
+        let mut pose = slot.pose_mut_for(false);
+        pose.set_attachment(
+            Some(attachment_name.to_string()),
+            Some(source_skin_name.to_string()),
             clear_deform,
         );
     }

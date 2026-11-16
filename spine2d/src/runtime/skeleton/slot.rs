@@ -209,6 +209,10 @@ impl Slot {
         self.attachment.as_deref()
     }
 
+    pub fn get_attachment_skin_name(&self) -> Option<&str> {
+        self.attachment_skin.as_deref()
+    }
+
     pub fn get_applied_attachment_name(&self) -> Option<&str> {
         if self.pose_constrained {
             self.applied_pose.attachment.as_deref()
@@ -219,6 +223,14 @@ impl Slot {
 
     pub fn get_bone<'a>(&self, skeleton: &'a Skeleton) -> &'a Bone {
         &skeleton.bones[self.bone]
+    }
+
+    pub fn get_bone_index(&self) -> usize {
+        self.bone
+    }
+
+    pub fn set_bone_index(&mut self, bone_index: usize) {
+        self.bone = bone_index;
     }
 
     /// The setup pose data for this slot in the given skeleton.
