@@ -1191,15 +1191,25 @@ impl App {
             }
         }
 
-        std::fs::write(&self.atlas_path, atlas_str)
+        std::fs::write(&self.atlas_path, &atlas_str)
             .map_err(|e| format!("write atlas {:?}: {e}", self.atlas_path))?;
+
+        // Also write .atlas.txt for direct Spine-Unity importer compatibility (Unity requires .atlas.txt)
+        let atlas_txt_path = if self.atlas_path.to_string_lossy().ends_with(".atlas.txt") {
+            self.atlas_path.clone()
+        } else {
+            let stem = self.atlas_path.file_stem().unwrap_or_default().to_string_lossy();
+            self.atlas_path.with_file_name(format!("{}.atlas.txt", stem))
+        };
+        let _ = std::fs::write(&atlas_txt_path, &atlas_str);
+
         let out_json =
             serde_json::to_string_pretty(&root).map_err(|e| format!("serialize json: {e}"))?;
         std::fs::write(&self.json_path, out_json)
             .map_err(|e| format!("write json {:?}: {e}", self.json_path))?;
 
         Ok(format!(
-            "Saved & recompiled export to {:?}",
+            "Saved & recompiled export to {:?} (and .atlas.txt for Unity)",
             self.json_path.file_name().unwrap_or_default()
         ))
     }
