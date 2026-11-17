@@ -1,10 +1,8 @@
-pub(crate) const SPINE_RUNTIME_VERSION_PREFIX: &str = "4.3";
-
 pub(crate) fn validate_spine_version<E>(
     value: &str,
     unsupported: impl FnOnce(String) -> E,
 ) -> Result<(), E> {
-    if value.starts_with(SPINE_RUNTIME_VERSION_PREFIX) {
+    if value.starts_with("4.3") || value.starts_with("4.2") {
         Ok(())
     } else {
         Err(unsupported(value.to_string()))

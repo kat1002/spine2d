@@ -72,8 +72,10 @@ cargo run -p spine2d-wgpu --example spine_runtimes --features json -- mira actio
   - Inspect and reorder slot rendering layers live with Move Up / Move Down controls.
 
 - **💾 Character Importer & Spine Exporter**:
-  - **Character Importer**: Browse any character folder containing `.json` or `.skel.bytes` (auto-decodes and upgrades Spine 4.2 to 4.3).
-  - **Save & Recompile Spine Export**: One-click bake of all custom attachments, new bones, bone transforms, sprite adjustments, and layers directly into standard Spine `.json` + `.atlas` files in the character's `export/` folder.
+  - **📥 Direct Non-Destructive Character Importer**: Dedicated native file & folder dialog buttons (`📥 Import...`, `📄 Browse File`, `📁 Browse Folder`) in both the top control bar and the Import/Export tab. Select any external Spine export (`.json`, `.skel`, `.skel.bytes`, `.atlas`) from anywhere on your drive without manual copying; it automatically copies assets into the examples directory without touching or mutating your original source files.
+  - **Unity Spine 4.2 & 4.3 Version Compatibility**: Automatically detects and supports Spine 4.2.xx and 4.3.xx without rejecting versions.
+  - **Save & Recompile Spine Export**: One-click bake of all custom attachments, new bones, bone transforms, sprite adjustments, and layers directly into standard Spine `.json` + `.atlas` AND `.atlas.txt` files for instant Unity compatibility.
+  - **📂 Open Export Folder**: One-click button to open the character export directory in Windows Explorer.
 
 ### 2. Runtime Core Extensions (`spine2d`)
 - `SkinData`: Added `add_skin()`, `copy_skin()`, `get_attachment_mut()`, and `find_skin_mut()`.

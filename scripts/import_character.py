@@ -1274,11 +1274,15 @@ def upgrade_json_to_43(root: Dict[str, Any]) -> None:
 def normalize_json(root: Dict[str, Any]) -> Dict[str, Any]:
     sk = root.setdefault("skeleton", {})
     old = str(sk.get("spine", ""))
-    if not old.startswith("4.3"):
+    if not old.startswith("4.3") and not old.startswith("4.2"):
         upgrade_json_to_43(root)
-    sk["spine"] = TARGET_VERSION if not old.startswith("4.3") else old
-    if old.startswith("4.3") and old != TARGET_VERSION:
-        sk["spine"] = TARGET_VERSION
+    # If the source file was Spine 4.2.xx, preserve it for Unity Spine 4.2 runtime compatibility!
+    if old.startswith("4.2"):
+        sk["spine"] = old
+    else:
+        sk["spine"] = TARGET_VERSION if not old.startswith("4.3") else old
+        if old.startswith("4.3") and old != TARGET_VERSION:
+            sk["spine"] = TARGET_VERSION
     return root
 
 
@@ -1362,6 +1366,7 @@ def import_character(source: Path, name: Optional[str], dest_root: Path) -> Path
         atlases.sort(key=lambda p: 0 if p.name.lower().startswith(stem + ".") or
                      alnum_lower(p.name).startswith(alnum_lower(stem)) else 1)
         shutil.copyfile(atlases[0], export_dir / (char_name + ".atlas"))
+        shutil.copyfile(atlases[0], export_dir / (char_name + ".atlas.txt"))
         atlas_note = atlases[0].name
     else:
         atlas_note = None

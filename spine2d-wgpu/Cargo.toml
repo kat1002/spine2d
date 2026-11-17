@@ -34,6 +34,7 @@ egui = "0.35"
 egui-winit = "0.35"
 egui-wgpu = { version = "0.35", features = ["winit"] }
 serde_json.workspace = true
+rfd = "0.18.0"
 
 [[example]]
 name = "basic"

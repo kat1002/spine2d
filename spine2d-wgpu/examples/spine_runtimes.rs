@@ -420,11 +420,29 @@ fn character_name_from_path(path: &Path) -> String {
             .unwrap_or_default()
             .to_string()
     } else {
-        path.file_name()
+        let file_stem = path
+            .file_stem()
             .and_then(|s| s.to_str())
-            .and_then(|s| s.split('.').next())
-            .unwrap_or_default()
-            .to_string()
+            .unwrap_or_default();
+        let file_stem = file_stem.split('.').next().unwrap_or(file_stem);
+        let parent_name = path
+            .parent()
+            .and_then(|p| p.file_name())
+            .and_then(|s| s.to_str())
+            .unwrap_or_default();
+        // If parent has a distinctive name (e.g. folder MiraSanta with mira.json), prefer parent
+        if (file_stem.eq_ignore_ascii_case("skeleton") || file_stem.eq_ignore_ascii_case("export"))
+            && !parent_name.is_empty()
+        {
+            parent_name.to_string()
+        } else if !parent_name.is_empty()
+            && !parent_name.eq_ignore_ascii_case("export")
+            && !parent_name.eq_ignore_ascii_case(file_stem)
+        {
+            parent_name.to_string()
+        } else {
+            file_stem.to_string()
+        }
     };
     raw.chars()
         .filter(|c| c.is_ascii_alphanumeric())
@@ -691,13 +709,40 @@ impl App {
     }
 
     /// Imports `path` through `scripts/import_character.py` and loads the result.
+    /// Safely copies all files into the example directory so the original external source is never modified.
     fn import_and_load(&mut self, path: &Path) {
         match run_import_character(path) {
-            Ok(name) => self.load_imported_example(&name, format!("Imported '{name}'")),
+            Ok(name) => self.load_imported_example(
+                &name,
+                format!("✅ Successfully imported '{name}' into examples (original source files preserved untouched)"),
+            ),
             Err(e) => {
                 self.import_status = None;
                 self.last_error = Some(e);
             }
+        }
+    }
+
+    /// Opens a native file dialog to select any Spine export file (.json, .skel, .skel.bytes, .atlas).
+    /// Safely copies the character into the example directory without modifying the original source!
+    fn pick_and_import_file(&mut self) {
+        if let Some(path) = rfd::FileDialog::new()
+            .set_title("Select Spine Export File (.json, .skel, .skel.bytes, .atlas)")
+            .add_filter("Spine Export Files", &["json", "skel", "bytes", "atlas", "txt"])
+            .pick_file()
+        {
+            self.import_and_load(&path);
+        }
+    }
+
+    /// Opens a native folder dialog to select any Spine character folder.
+    /// Safely copies the character into the example directory without modifying the original source!
+    fn pick_and_import_folder(&mut self) {
+        if let Some(folder) = rfd::FileDialog::new()
+            .set_title("Select Spine Character Export Folder")
+            .pick_folder()
+        {
+            self.import_and_load(&folder);
         }
     }
 
@@ -1489,14 +1534,30 @@ impl App {
                     .show(ui, |ui| {
                         ui.label("Example");
                         let mut example = self.ui.example.clone();
-                        egui::ComboBox::from_id_salt("example_combo")
-                            .width(260.0)
-                            .selected_text(&example)
-                            .show_ui(ui, |ui| {
-                                for name in &self.examples {
-                                    ui.selectable_value(&mut example, name.clone(), name);
-                                }
-                            });
+                        ui.horizontal(|ui| {
+                            egui::ComboBox::from_id_salt("example_combo")
+                                .width(150.0)
+                                .selected_text(&example)
+                                .show_ui(ui, |ui| {
+                                    for name in &self.examples {
+                                        ui.selectable_value(&mut example, name.clone(), name);
+                                    }
+                                });
+                            if ui
+                                .button("📥 Import...")
+                                .on_hover_text("Import any external Spine export file (.json, .skel, .skel.bytes, .atlas). Safely copies to examples/ without touching your original files!")
+                                .clicked()
+                            {
+                                self.pick_and_import_file();
+                            }
+                            if ui
+                                .button("📁")
+                                .on_hover_text("Import external character folder (safely copies to examples/)")
+                                .clicked()
+                            {
+                                self.pick_and_import_folder();
+                            }
+                        });
                         if example != self.ui.example {
                             self.ui.example = example;
                             // New skeleton almost certainly has a different animation/skin set.
@@ -3045,70 +3106,80 @@ impl App {
                     }
 
                     StudioTab::ImportExport => {
-                    egui::CollapsingHeader::new("Character Importer (JSON / .skel.bytes)")
-                    .default_open(true)
-                    .show(ui, |ui| {
-                    if ui.button("Browse & Import Character Folder...").clicked() {
-                    let picked = std::process::Command::new("powershell")
-                    .args([
-                    "-NoProfile",
-                    "-Command",
-                    "Add-Type -AssemblyName System.Windows.Forms; $f = New-Object System.Windows.Forms.FolderBrowserDialog; $f.Description = 'Select a Spine character folder (.json or .skel.bytes + atlas + png)'; $f.SelectedPath = 'D:\\Phuc\\Projects\\squishy_pa\\SquishyDumpling\\Assets\\Resources\\Animation\\Skin'; if ($f.ShowDialog() -eq 'OK') { Write-Output $f.SelectedPath }",
-                    ])
-                    .output()
-                    .map(|o| String::from_utf8_lossy(&o.stdout).trim().to_string())
-                    .unwrap_or_default();
-                    if !picked.is_empty() {
-                    self.import_and_load(Path::new(&picked));
-                    }
-                    }
-                    ui.label("Quick Import from SquishyDumpling:");
-                    let chars = squishy_characters();
-                    if chars.is_empty() {
-                    ui.weak(format!("(no character folders found in {SQUISHY_SKIN_DIR})"));
-                    }
-                    let mut quick_pick: Option<String> = None;
-                    ui.horizontal_wrapped(|ui| {
-                    for c in &chars {
-                    if ui.button(c).clicked() {
-                    quick_pick = Some(c.clone());
-                    }
-                    }
-                    });
-                    if let Some(c) = quick_pick {
-                    let name: String = c
-                    .chars()
-                    .filter(|ch| ch.is_ascii_alphanumeric())
-                    .map(|ch| ch.to_ascii_lowercase())
-                    .collect();
-                    let already = self.examples.contains(&name)
-                    && pick_export_files(&name, false).is_ok();
-                    if already {
-                    self.load_imported_example(&name, format!("Loaded '{name}'"));
-                    } else {
-                    self.import_and_load(&Path::new(SQUISHY_SKIN_DIR).join(&c));
-                    }
-                    }
-                    if let Some(msg) = self.import_status.as_deref() {
-                    ui.colored_label(egui::Color32::LIGHT_GREEN, msg);
-                    }
-                    });
-                    ui.separator();
+                        egui::CollapsingHeader::new("📥 Spine Character Importer (.json / .skel / folder)")
+                            .default_open(true)
+                            .show(ui, |ui| {
+                                ui.label("Import any Spine export from anywhere on your computer without having to copy it beforehand.");
+                                ui.colored_label(
+                                    egui::Color32::from_rgb(100, 200, 255),
+                                    "🛡️ Non-destructive: Copies the files into the examples folder — your original files are NEVER overwritten!",
+                                );
+                                ui.add_space(4.0);
+
+                                ui.horizontal(|ui| {
+                                    if ui.button("📄 Browse Spine File (.json / .skel / .atlas)...").clicked() {
+                                        self.pick_and_import_file();
+                                    }
+                                    if ui.button("📁 Browse Character Folder...").clicked() {
+                                        self.pick_and_import_folder();
+                                    }
+                                });
+
+                                ui.add_space(6.0);
+                                ui.label("Quick Import from SquishyDumpling:");
+                                let chars = squishy_characters();
+                                if chars.is_empty() {
+                                    ui.weak(format!("(no character folders found in {SQUISHY_SKIN_DIR})"));
+                                }
+                                let mut quick_pick: Option<String> = None;
+                                ui.horizontal_wrapped(|ui| {
+                                    for c in &chars {
+                                        if ui.button(c).clicked() {
+                                            quick_pick = Some(c.clone());
+                                        }
+                                    }
+                                });
+                                if let Some(c) = quick_pick {
+                                    let name: String = c
+                                        .chars()
+                                        .filter(|ch| ch.is_ascii_alphanumeric())
+                                        .map(|ch| ch.to_ascii_lowercase())
+                                        .collect();
+                                    let already = self.examples.contains(&name)
+                                        && pick_export_files(&name, false).is_ok();
+                                    if already {
+                                        self.load_imported_example(&name, format!("Loaded '{name}'"));
+                                    } else {
+                                        self.import_and_load(&Path::new(SQUISHY_SKIN_DIR).join(&c));
+                                    }
+                                }
+                                if let Some(msg) = self.import_status.as_deref() {
+                                    ui.colored_label(egui::Color32::LIGHT_GREEN, msg);
+                                }
+                            });
+                        ui.separator();
 
                         ui.separator();
                         ui.strong("💾 Save & Export Modified Spine:");
-                        ui.label("Bakes all bone modifications, new bones, part sprite transforms, slot re-wirings, and custom parts directly into the Spine JSON + Atlas files.");
-                        if ui.button("💾 Save & Recompile Spine Export (JSON + Atlas)").clicked() {
-                            match self.export_modified_spine() {
-                                Ok(msg) => {
-                                    self.save_status = Some(msg);
-                                    self.last_error = None;
-                                }
-                                Err(e) => {
-                                    self.last_error = Some(e);
+                        ui.label("Bakes all bone modifications, new bones, part sprite transforms, slot re-wirings, and custom parts directly into the Spine JSON + Atlas files in the example directory.");
+                        ui.horizontal(|ui| {
+                            if ui.button("💾 Save & Recompile Spine Export (JSON + Atlas)").clicked() {
+                                match self.export_modified_spine() {
+                                    Ok(msg) => {
+                                        self.save_status = Some(msg);
+                                        self.last_error = None;
+                                    }
+                                    Err(e) => {
+                                        self.last_error = Some(e);
+                                    }
                                 }
                             }
-                        }
+                            if ui.button("📂 Open Export Folder").on_hover_text("Open current export directory in Windows Explorer").clicked() {
+                                if let Some(parent) = self.json_path.parent() {
+                                    let _ = std::process::Command::new("explorer").arg(parent).spawn();
+                                }
+                            }
+                        });
                         if let Some(msg) = self.save_status.as_deref() {
                             ui.colored_label(egui::Color32::LIGHT_GREEN, msg);
                         }
